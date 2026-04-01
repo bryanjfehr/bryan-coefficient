@@ -1,0 +1,10 @@
+{
+  "tier": "eval_small_needle_haystack",
+  "models": ["Qwen/Qwen2.5-1.5B-Instruct", "microsoft/Phi-3-mini-4k-instruct"],
+  "hardware": ["NVIDIA RTX 4060", "NVIDIA L4"],
+  "metrics": ["passkey_acc", "ppl", "vram_mb"],
+  "lambda_range": [0.0, 0.01],
+  "sink_protection": 20,
+  "local_window": 128,
+  "eviction_threshold": 1e-3
+}

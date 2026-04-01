@@ -1,0 +1,9 @@
+bitsandbytes>=0.46.1
+transformers>=4.40.0
+accelerate>=0.29.0
+peft
+outlines==1.2.12
+pydantic>=2.12.0
+kaleido
+langgraph
+langchain-core

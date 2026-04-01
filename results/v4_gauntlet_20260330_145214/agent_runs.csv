@@ -1,0 +1,26 @@
+run_id,model_name,lambda_b,success,total_turns,failure_turn,final_response,peak_vram_mb,avg_cache_mb,timestamp
+v4_Qwen2.5-1.5B-Instruct_L0.0_20260330_145258,Qwen/Qwen2.5-1.5B-Instruct,0.0,0.0,10,10,Amnesia Loop / Max Turns,2837.685546875,0.0,2026-03-30 14:53:23
+v4_Qwen2.5-1.5B-Instruct_L5e-05_20260330_145258,Qwen/Qwen2.5-1.5B-Instruct,5e-05,0.0,10,10,Amnesia Loop / Max Turns,2837.685546875,0.0,2026-03-30 14:53:44
+v4_Qwen2.5-1.5B-Instruct_L7.500000000000001e-05_20260330_145258,Qwen/Qwen2.5-1.5B-Instruct,7.500000000000001e-05,0.0,1,1,{47658},2837.685546875,0.0,2026-03-30 14:54:03
+v4_Qwen2.5-1.5B-Instruct_L0.0001_20260330_145258,Qwen/Qwen2.5-1.5B-Instruct,0.0001,0.0,1,1,passcode,2837.685546875,0.0,2026-03-30 14:54:22
+v4_Qwen2.5-1.5B-Instruct_L0.000125_20260330_145258,Qwen/Qwen2.5-1.5B-Instruct,0.000125,0.0,10,10,Amnesia Loop / Max Turns,2837.685546875,0.0,2026-03-30 14:54:42
+v4_Phi-3-mini-4k-instruct_L0.0_20260330_145531,microsoft/Phi-3-mini-4k-instruct,0.0,0.0,10,10,Amnesia Loop / Max Turns,7141.73681640625,0.0,2026-03-30 14:55:48
+v4_Phi-3-mini-4k-instruct_L5e-05_20260330_145531,microsoft/Phi-3-mini-4k-instruct,5e-05,0.0,10,10,Amnesia Loop / Max Turns,7141.73681640625,0.0,2026-03-30 14:56:07
+v4_Phi-3-mini-4k-instruct_L7.500000000000001e-05_20260330_145531,microsoft/Phi-3-mini-4k-instruct,7.500000000000001e-05,0.0,10,10,Amnesia Loop / Max Turns,7141.73681640625,0.0,2026-03-30 14:56:27
+v4_Phi-3-mini-4k-instruct_L0.0001_20260330_145531,microsoft/Phi-3-mini-4k-instruct,0.0001,0.0,10,10,Amnesia Loop / Max Turns,7141.73681640625,0.0,2026-03-30 14:56:48
+v4_Phi-3-mini-4k-instruct_L0.000125_20260330_145531,microsoft/Phi-3-mini-4k-instruct,0.000125,0.0,10,10,Amnesia Loop / Max Turns,7141.73681640625,0.0,2026-03-30 14:57:09
+v4_gemma-2-2b-it_L0.0_20260330_145750,google/gemma-2-2b-it,0.0,0.0,1,1,encrypted_file_name,4831.37841796875,0.0,2026-03-30 14:58:10
+v4_gemma-2-2b-it_L5e-05_20260330_145750,google/gemma-2-2b-it,5e-05,0.0,0,0,LangGraph Execution Crash: 'NoneType' object has no attribute 'upper',4831.37841796875,0.0,2026-03-30 14:58:31
+v4_gemma-2-2b-it_L7.500000000000001e-05_20260330_145750,google/gemma-2-2b-it,7.500000000000001e-05,0.0,0,0,LangGraph Execution Crash: 'NoneType' object has no attribute 'upper',4831.37841796875,0.0,2026-03-30 14:58:53
+v4_gemma-2-2b-it_L0.0001_20260330_145750,google/gemma-2-2b-it,0.0001,0.0,1,1,,4831.37841796875,0.0,2026-03-30 14:59:14
+v4_gemma-2-2b-it_L0.000125_20260330_145750,google/gemma-2-2b-it,0.000125,0.0,10,10,Amnesia Loop / Max Turns,4831.37841796875,0.0,2026-03-30 14:59:34
+v4_Llama-3.2-3B-Instruct_L0.0_20260330_150018,meta-llama/Llama-3.2-3B-Instruct,0.0,0.0,10,10,Amnesia Loop / Max Turns,6000.755859375,0.0,2026-03-30 15:00:39
+v4_Llama-3.2-3B-Instruct_L5e-05_20260330_150018,meta-llama/Llama-3.2-3B-Instruct,5e-05,0.0,1,1,"BRYAN_VANCE Clearance Level: High Clearance, Department: IT, Target File: encrypted_file.txt, Action: Download, Timestamp: Current",6000.755859375,0.0,2026-03-30 15:00:59
+v4_Llama-3.2-3B-Instruct_L7.500000000000001e-05_20260330_150018,meta-llama/Llama-3.2-3B-Instruct,7.500000000000001e-05,0.0,10,10,Amnesia Loop / Max Turns,6000.755859375,0.0,2026-03-30 15:01:24
+v4_Llama-3.2-3B-Instruct_L0.0001_20260330_150018,meta-llama/Llama-3.2-3B-Instruct,0.0001,0.0,1,1,,6000.755859375,0.0,2026-03-30 15:01:41
+v4_Llama-3.2-3B-Instruct_L0.000125_20260330_150018,meta-llama/Llama-3.2-3B-Instruct,0.000125,0.0,10,10,Amnesia Loop / Max Turns,6000.755859375,0.0,2026-03-30 15:02:01
+v4_Mistral-7B-Instruct-v0.3_L0.0_20260330_150755,mistralai/Mistral-7B-Instruct-v0.3,0.0,0.0,10,10,Amnesia Loop / Max Turns,13553.7138671875,0.0,2026-03-30 15:08:25
+v4_Mistral-7B-Instruct-v0.3_L5e-05_20260330_150755,mistralai/Mistral-7B-Instruct-v0.3,5e-05,0.0,10,10,Amnesia Loop / Max Turns,13553.7138671875,0.0,2026-03-30 15:08:48
+v4_Mistral-7B-Instruct-v0.3_L7.500000000000001e-05_20260330_150755,mistralai/Mistral-7B-Instruct-v0.3,7.500000000000001e-05,0.0,10,10,Amnesia Loop / Max Turns,13553.7138671875,0.0,2026-03-30 15:09:10
+v4_Mistral-7B-Instruct-v0.3_L0.0001_20260330_150755,mistralai/Mistral-7B-Instruct-v0.3,0.0001,0.0,10,10,Amnesia Loop / Max Turns,13553.7138671875,0.0,2026-03-30 15:09:33
+v4_Mistral-7B-Instruct-v0.3_L0.000125_20260330_150755,mistralai/Mistral-7B-Instruct-v0.3,0.000125,0.0,10,10,Amnesia Loop / Max Turns,13553.7138671875,0.0,2026-03-30 15:09:56

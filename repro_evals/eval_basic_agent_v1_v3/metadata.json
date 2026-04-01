@@ -1,0 +1,8 @@
+{
+  "tier": "eval_basic_agent_v1_v3",
+  "models": ["Qwen/Qwen2.5-1.5B-Instruct", "microsoft/Phi-3-mini-4k-instruct", "google/gemma-2-2b-it"],
+  "hardware": ["NVIDIA L4"],
+  "metrics": ["success_rate", "total_turns", "token_usage"],
+  "framework": "LangGraph SQL State Machine",
+  "max_turns": 10
+}
