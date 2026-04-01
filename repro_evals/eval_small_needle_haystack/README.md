@@ -1,29 +1,39 @@
 # Small Model Needle-in-a-Haystack Evaluation
 
-This folder contains the necessary scripts to reproduce the λB (Bryan Coefficient) discontinuity mapping for small language models (SLMs) such as Qwen2-1.5B and Phi-3-mini.
+This evaluation tier reproduces the $\lambda_B$ (Bryan Coefficient) discontinuity mapping for small language models (SLMs). It identifies the specific threshold where KV-cache eviction leads to retrieval failure.
 
-## Hardware Tiers
-- **Local (RTX 4060)**: Baseline testing for memory efficiency and 4-bit quantization.
-- **Google Colab (L4 GPU)**: Standard evaluation tier for mapping the discontinuity threshold across 8k-12k context windows.
+## Hardware Requirements
+- **Local (RTX 4060)** or **Google Colab (L4 GPU)**: Standard tier for mapping discontinuity thresholds across 8k-12k context windows.
 
-## Methodology
-The evaluation uses a "Needle-in-a-Haystack" (Passkey Retrieval) benchmark combined with WikiText-103 Perplexity (PPL) measurement. We surgically alter the attention mechanism of the target models to apply a distance-decay penalty ($\lambda_B$) and physically evict low-importance KV-cache tokens.
+## Reproduction Steps
 
-### Key Parameters
-- `sink_protection`: 20 tokens (ensures foundational attention anchors are preserved).
-- `local_window`: 128 tokens (ensures recent context is retained).
-- `eviction_threshold`: 1e-3 (minimum attention score sum required for token survival).
+### Option A: Manual Targeted Sweep
+To map the discontinuity cliff for a specific model (e.g., Qwen2.5-1.5B):
 
-## Reproduction Steps in Google Colab
-1. Open a new Google Colab notebook with an **L4 GPU** runtime.
-2. Run the provided `repro_small_needle.py` script.
-3. The script will:
-   - Install dependencies (transformers, bitsandbytes, etc.).
-   - Load models directly from HuggingFace.
-   - Apply the Bryan Coefficient surgery.
-   - Sweep through λB values from 0.0 to 0.01.
-   - Output accuracy and VRAM metrics.
+1.  Open a Google Colab notebook with an **L4 GPU**.
+2.  Mount Google Drive and authenticate with Hugging Face.
+3.  Execute a targeted evaluation:
+    ```bash
+    # Test λB = 0.001 (Should Pass)
+    python repro_evals/eval_small_needle_haystack/repro_small_needle.py --model Qwen/Qwen2.5-1.5B-Instruct --lambda_b 0.001
+    
+    # Test λB = 0.002 (Should Fail/Degrade)
+    python repro_evals/eval_small_needle_haystack/repro_small_needle.py --model Qwen/Qwen2.5-1.5B-Instruct --lambda_b 0.002
+    ```
 
-## Files
-- `repro_small_needle.py`: Self-contained reproduction script.
-- `metadata.json`: Technical parameters for this evaluation tier.
+### Option B: Full Evolutionary Gauntlet
+To reproduce the complete scalar and multidimensional results (including bisection search) across all models:
+
+1.  Run the master orchestration script:
+    ```bash
+    bash run_experiments.sh
+    ```
+
+## Expected Results
+- **Scalar Cliff**: You should observe a sharp drop in Passkey Retrieval accuracy as $\lambda_B$ crosses the model's specific threshold (typically between 0.001 and 0.005 for SLMs).
+- **Perplexity Stability**: WikiText-103 Perplexity (PPL) should remain relatively stable until just before the cliff, where it will spike exponentially, indicating catastrophic linguistic collapse.
+- **VRAM Recovery**: The logs will report "Final KV Cache Size" in MB, showing the actual memory saved compared to a baseline run (`--lambda_b 0.0`).
+
+## Key Files
+- `repro_small_needle.py`: Orchestrates a real needle-in-a-haystack run using the project's core `run_benchmarks.py` logic.
+- `bisection_search.py`: Automated tool used by `run_experiments.sh` to find the exact cliff point.

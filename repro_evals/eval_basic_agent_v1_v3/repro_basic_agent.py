@@ -1,12 +1,8 @@
 # repro_basic_agent.py: Self-Contained Agentic Evaluation Reproduction
 import os
 import sys
-import sqlite3
-import json
-import torch
-from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
-from langgraph.graph import StateGraph, END
-from typing import TypedDict, Annotated, List, Union
+import subprocess
+import argparse
 
 # --- GOOGLE COLAB SETUP ---
 def setup_colab_environment():
@@ -23,86 +19,56 @@ def setup_colab_environment():
                 sys.path.append(project_path)
             print(f"[SYSTEM] Working directory set to: {os.getcwd()}")
         else:
-            print(f"[WARNING] Project path {project_path} not found. Check your Drive folder name.")
+            print(f"[WARNING] Project path {project_path} not found.")
 
         # 2. Hugging Face Login
         from huggingface_hub import login
         try:
             hf_token = userdata.get('HF_TOKEN')
             login(token=hf_token)
-            print("[SYSTEM] Successfully logged in to Hugging Face Hub via Colab secrets.")
+            os.environ["HF_TOKEN"] = hf_token
+            print("[SYSTEM] Logged in to Hugging Face Hub.")
         except Exception as e:
-            print(f"[WARNING] Could not retrieve HF_TOKEN from Colab secrets: {e}")
+            print(f"[WARNING] Could not retrieve HF_TOKEN: {e}")
     except ImportError:
-        print("[SYSTEM] Local environment detected. Skipping Colab-specific setup.")
+        print("[SYSTEM] Local environment detected.")
 
-setup_colab_environment()
+def run_agent_eval(model_name: str, lambda_b: float = 0.0):
+    """
+    Executes the REAL agentic evaluation using the project's core utilities.
+    No mocking.
+    """
+    print(f"==========================================")
+    print(f">> TARGET MODEL: {model_name}")
+    print(f">> PROTOCOL: λB = {lambda_b} (Agentic Stress Test)")
+    print(f"==========================================")
 
-# --- MOCK SQL SETUP ---
-def setup_mock_db():
-    conn = sqlite3.connect("mock_eval.db")
-    cursor = conn.cursor()
-    cursor.execute("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, name TEXT, email TEXT)")
-    cursor.execute("INSERT OR IGNORE INTO users (id, name, email) VALUES (1, 'Alice', 'alice@example.com'), (2, 'Bob', 'bob@example.com')")
-    conn.commit()
-    conn.close()
+    # Ensure SQL environment is set up
+    print("[SYSTEM] Initializing SQL Live Environment...")
+    subprocess.run(["python3", "sql_eval_setup.py"], check=True)
+    subprocess.run(["python3", "init_agent_db.py", "--db", "repro_agent.db"], check=True)
 
-def run_sql(query: str):
-    conn = sqlite3.connect("mock_eval.db")
-    cursor = conn.cursor()
-    try:
-        cursor.execute(query)
-        res = cursor.fetchall()
-        return str(res)
-    except Exception as e:
-        return f"Error: {str(e)}"
-    finally:
-        conn.close()
-
-# --- AGENT GRAPH ---
-class AgentState(TypedDict):
-    input: str
-    chat_history: List[str]
-    agent_outcome: Union[dict, None]
-    steps: List[str]
-
-def call_model(state: AgentState):
-    # This is a placeholder for actual LLM call logic
-    print(f"[AGENT] Input: {state['input']}")
-    return {"agent_outcome": {"action": "sql_query", "action_input": "SELECT * FROM users"}}
-
-def execute_tools(state: AgentState):
-    outcome = state["agent_outcome"]
-    if outcome["action"] == "sql_query":
-        result = run_sql(outcome["action_input"])
-        print(f"[TOOL] SQL Result: {result}")
-        return {"steps": [f"SQL Result: {result}"]}
-    return {"agent_outcome": None}
-
-def run_repro_agent(model_name: str):
-    print(f"[SYSTEM] Reproducing Agentic Evaluation for {model_name}...")
-    setup_mock_db()
+    # Call the main benchmark script with --agent_test
+    cmd = [
+        "python3", "run_benchmarks.py",
+        "--model", model_name,
+        "--lambda_b", str(lambda_b),
+        "--agent_test",
+        "--agent_db", "repro_agent.db",
+        "--run_id", f"repro_{model_name.replace('/', '_')}_lb{lambda_b}"
+    ]
     
-    # In a real Colab, we would load the model here.
-    # For this script, we'll simulate a few turns.
-    
-    workflow = StateGraph(AgentState)
-    workflow.add_node("agent", call_model)
-    workflow.add_node("action", execute_tools)
-    
-    workflow.set_entry_point("agent")
-    workflow.add_edge("agent", "action")
-    workflow.add_edge("action", END)
-    
-    app = workflow.compile()
-    
-    inputs = {"input": "List all users from the database."}
-    for output in app.stream(inputs):
-        for key, value in output.items():
-            print(f"Node '{key}': Output: {value}")
-    
-    print("[SUCCESS] Agentic evaluation turn completed.")
+    print(f"[SYSTEM] Executing: {' '.join(cmd)}")
+    subprocess.run(cmd, check=True)
 
 if __name__ == "__main__":
-    # In practice, provide a model path or use a mock
-    run_repro_agent("Qwen/Qwen2.5-1.5B-Instruct")
+    setup_colab_environment()
+    
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--model", type=str, default="google/gemma-2-2b-it")
+    parser.add_argument("--lambda_b", type=float, default=0.0)
+    args = parser.parse_args()
+    
+    # By default, we run at lambda_b=0.0 to reproduce the v1-v3 "Amnesia Loops" 
+    # which occurred even without KV pruning in smaller models.
+    run_agent_eval(args.model, args.lambda_b)

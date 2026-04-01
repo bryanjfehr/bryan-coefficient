@@ -1,30 +1,37 @@
 # Bryan Coefficient Evaluation Suite (Reproduction)
 
-This directory contains a tiered evaluation suite for reproducing the findings of the Bryan Coefficient ($\lambda_B$) research. Each tier is optimized for specific hardware constraints and evaluation goals.
+This directory contains the official reproduction suite for the Bryan Coefficient ($\lambda_B$) research. These scripts are designed to replicate the findings in the `results/` folder with academic rigor.
 
-## Evaluation Tiers
-1. **[Small Model Needle-in-a-Haystack](./eval_small_needle_haystack/)**: 
-   - **Focus**: Mapping the initial discontinuity threshold.
-   - **Hardware**: RTX 4060, L4 GPU.
-   - **Metrics**: Passkey Accuracy, Perplexity.
-2. **[Basic Agentic Evaluation (v1-v3)](./eval_basic_agent_v1_v3/)**: 
-   - **Focus**: Identifying reasoning failure modes (Amnesia Loops).
-   - **Hardware**: L4 GPU.
-   - **Metrics**: SQL retrieval success, reasoning turns.
-3. **[Large Model Agentic Evaluation (A100)](./eval_large_agent_a100/)**: 
-   - **Focus**: High-resolution bisection and context compression for 20B+ models.
-   - **Hardware**: A100 GPU.
-   - **Metrics**: VRAM recovery, agent success near the cliff.
+## Master Orchestration Scripts
+Researchers should use the following master scripts located in the project root:
 
-## Core Mandates
-- **Eager Mode**: All evaluations MUST use `attn_implementation="eager"` to allow KV-cache surgery.
-- **4-bit Quantization**: BitsAndBytes (NF4) is the default for fitting into 8GB - 16GB VRAM limits.
-- **Sink Protection**: Preservation of foundational tokens is mandatory for model stability.
+1. **`bash run_experiments.sh`**: Reproduces the scalar bisection, entropy extraction, and multidimensional benchmarks.
+2. **`bash run_agent_test.sh`**: Reproduces the agentic reasoning benchmarks (SQL retrieval) under KV-cache decay.
 
-## Running in Google Colab
-Each tier provides scripts optimized for Google Colab. To ensure success:
+## Evaluation Tiers & Hardware Requirements
 
-1. **Google Drive Integration**: The scripts expect the project to be located at `/content/drive/MyDrive/bryan-coefficient`. They will automatically attempt to mount your drive and add this path to `sys.path`.
-2. **Hugging Face Authentication**: You must have `HF_TOKEN` saved in your Google Colab **Secrets** (the key icon in the sidebar). Ensure the "Notebook access" toggle is turned on for this secret.
-3. **Model Permissions**: Ensure your Hugging Face account has been granted access to gated models from Meta (Llama), Google (Gemma), and Microsoft (Phi).
-4. **Hardware**: Select the appropriate GPU runtime (L4 or A100) as specified in each tier's README.
+| Tier | Focus | Recommended Hardware | Models |
+| :--- | :--- | :--- | :--- |
+| **[Small Needle-in-a-Haystack](./eval_small_needle_haystack/)** | Discontinuity Mapping | RTX 4060 / L4 GPU | Qwen2.5-1.5B, Phi-3-mini |
+| **[Basic Agentic (v1-v3)](./eval_basic_agent_v1_v3/)** | Reasoning Failure (Amnesia) | L4 GPU (16GB VRAM) | Gemma-2-2B, Llama-3.2-3B |
+| **[Large Model Agentic](./eval_large_agent_a100/)** | High-Res Bisection & Compression | A100 GPU (40GB/80GB) | Llama-3.1-8B, Mistral-7B |
+
+## Core Methodology
+- **Eager Execution**: All evaluations MUST use `attn_implementation="eager"` to enable physical KV-cache surgery.
+- **4-bit Quantization**: BitsAndBytes (NF4) is used to fit models into consumer/standard cloud VRAM.
+- **Physical Eviction**: Unlike "soft" masking, these scripts perform actual VRAM recovery by slicing the KV-cache tensors.
+
+## Reproduction Protocol
+To reproduce the findings from scratch:
+
+1. **Environment Setup**: Ensure all dependencies are installed (see `requirements.txt`).
+2. **Authentication**: Set `HF_TOKEN` as an environment variable or in Colab Secrets.
+3. **Execution**:
+   ```bash
+   # Phase 1: Map the Discontinuity Thresholds
+   bash run_experiments.sh
+   
+   # Phase 2: Verify Reasoning Integrity
+   bash run_agent_test.sh
+   ```
+4. **Validation**: Compare the generated `metrics.csv` and `results/agent_results_*/` with the baseline findings in the `results/` folder.

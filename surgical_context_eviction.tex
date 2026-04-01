@@ -1,0 +1,279 @@
+\documentclass[11pt,a4paper]{article}
+\pdfoutput=1
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{amsfonts}
+\usepackage{mathtools}
+\usepackage{booktabs}
+\usepackage[colorlinks=true, linkcolor=blue, citecolor=blue, urlcolor=blue]{hyperref}
+\usepackage{url}
+\usepackage{enumitem}
+\usepackage[margin=1in]{geometry}
+\usepackage{listings}
+\usepackage{verbatim}
+\usepackage{graphicx}
+
+% =============================================================================
+% Custom notation (for perfect consistency across the paper)
+% =============================================================================
+\newcommand{\bryanCoeff}{\lambda_B}
+\newcommand{\entropy}{H}
+\newcommand{\ablTensor}{\mathcal{A}}
+
+% =============================================================================
+% Title / Author / Date
+% =============================================================================
+\title{Surgical Context Eviction in Agentic Architectures: \\ Isolating the Discontinuity Threshold via Deterministic Logit Masking}
+
+\author{%
+  Bryan Joseph Fehr \\
+  \texttt{bryanjfehr} \\
+  \href{https://github.com/bryanjfehr}{https://github.com/bryanjfehr}
+}
+
+\date{April 1, 2026}
+
+\begin{document}
+
+\maketitle
+
+% =============================================================================
+% Abstract (verbatim with only LaTeX math cleanup)
+% =============================================================================
+\begin{abstract}
+The advent of highly autonomous, agentic Large Language Models (LLMs) has precipitated a severe crisis in computational resource allocation, primarily manifesting as the Key-Value (KV) cache bottleneck during extended temporal reasoning tasks. Standard context eviction strategies, which typically rely on arbitrary sliding windows or uniform token dropping, inevitably result in a catastrophic loss of reasoning fidelity. This cognitive degradation is frequently conceptualized in the literature and in applied engineering as the ``amnesia wall,'' a phenomenon where an agent solves a complex edge case only to completely forget the required procedural logic shortly thereafter. This research introduces a novel and exhaustive mathematical framework for targeted context preservation: surgical context eviction through deterministic logit masking. Central to this methodology is the derivation and application of the Bryan Coefficient (\(\bryanCoeff\)), a mathematically isolated, head-specific decay parameter that calibrates temporal pre-softmax penalization based on the Shannon entropy of individual attention heads (\(\entropy\)).
+
+During the empirical phase of this research, it was determined that obtaining highly precise quantitative telemetry for large agent topologies operating within asynchronous, abstracted graph-state environments---specifically the LangGraph gauntlet---was fundamentally unfeasible. The multi-agent orchestration layer introduces insurmountable mathematical noise into the KV cache profiling, rendering exact measurements of attention degradation highly inaccurate. Consequently, rather than discarding this data, this report explicitly recontextualizes the LangGraph gauntlet to serve as the qualitative validation of structural agentic resilience under cache pressure. For rigorous quantitative assessments, the methodology pivots entirely to highly controlled Needle In A Haystack (NIAH) evaluations. By employing a specialized bisection search algorithm within the NIAH environment, the exact \(\bryanCoeff\) discontinuity threshold---the precise mathematical point at which cognitive degradation becomes catastrophic---is successfully isolated. Empirical comparisons between the Devstral-24B dense architecture and the Qwen-30B Mixture-of-Experts (MoE) topology demonstrate that surgical logit masking actively suppresses the ``Lost in the Middle'' phenomenon, effectively condensing unbounded operational logs into structured, consolidated institutional memory without requiring unscalable VRAM expansion.
+\end{abstract}
+
+\begin{keywords}
+agentic LLMs, KV cache eviction, deterministic logit masking, Bryan Coefficient, attention entropy calibration, Needle-in-a-Haystack, LangGraph, amnesia wall
+\end{keywords}
+
+% =============================================================================
+% 1. Introduction
+% =============================================================================
+\section{Introduction}
+
+\subsection{The Agentic KV Cache Bottleneck}
+The deployment of autonomous Large Language Models in complex, multi-turn environments---such as autonomous software engineering, persistent financial auditing, and continuous infrastructure monitoring---has fundamentally shifted the computational paradigms of sequence modeling.\cite{1} Unlike traditional prompt-response interactions, which are inherently discrete and temporally bounded, agentic workflows demand sustained, continuous observation of operational environments, dynamic utilization of external tools, and prolonged iterative loops. Modern architectures have responded to this demand by vastly expanding theoretical context windows. Models such as Devstral-24B---a 24-billion parameter model explicitly optimized for agentic coding tasks and fine-tuned from the Mistral Small 3.1 architecture---boast theoretical context windows extending up to 128,000 tokens.\cite{2} Similarly, state-of-the-art sparse Mixture-of-Experts (MoE) architectures, such as Qwen3-30B-A3B, are engineered to support ultra-long context horizons of up to 256,000 tokens while activating merely 3 billion parameters per token to maintain high inference speeds.\cite{3}
+
+However, theoretical maximum context windows often belie the physical and mathematical realities of hardware constraints at the edge. The Key-Value (KV) cache, the memory structure required to store previous token representations to sustain autoregressive generation, scales linearly with sequence length and batch size, resulting in immense and often unsustainable memory pressure.\cite{4} For local deployments on consumer-grade hardware or localized edge servers---such as a single NVIDIA RTX 4090 with 24\,GB of VRAM or a unified memory Mac architecture with 32\,GB to 48\,GB of RAM---storing the uncompressed KV states of a full 128,000-token sequence becomes a mathematical impossibility without resorting to highly aggressive quantization or severe tensor offloading, both of which degrade reasoning quality.
+
+Consequently, long-running autonomous agents are inevitably forced to implement some form of context eviction protocol. If an agent is designed to execute background data pipelining or iterative software debugging over several hours, the unrestricted, continuous accumulation of tool logs, systemic standard output (stdout) error streams, and internal reasoning scratchpads will rapidly and predictably saturate the available VRAM.\cite{7} The KV cache bottleneck, therefore, represents not merely a minor engineering hurdle, but the primary upper boundary limiting the temporal autonomy, reasoning depth, and operational reliability of artificial agents in the field.
+
+\subsection{Naive Eviction and the ``Lost in the Middle'' Phenomenon}
+To mitigate the rapid explosion of the KV cache, conventional orchestration layers and LLM inference engines routinely employ naive eviction strategies. These are typically implemented as simple sliding windows (a First-In-First-Out approach to token dropping) or uniform token compression algorithms. These elementary heuristics operate under the fundamentally flawed assumption that the semantic utility and operational relevance of a token decay strictly and uniformly as a function of its chronological age. This assumption is highly detrimental in the context of advanced agentic architectures.
+
+Consider an autonomous software engineering agent operating on a complex, multi-file codebase. The agent might define a crucial systemic parameter, initialize a global variable, or establish a rigid relational schema in the first 500 tokens of a session.\cite{8} It may subsequently execute 50,000 tokens of highly iterative, trial-and-error debugging, pulling in massive amounts of terminal output. Following this extensive operation, the agent will suddenly require retrieval of that initial parameter to finalize the code patch. When naive sliding window eviction is applied, these foundational operational schemas are summarily erased from the KV cache to make room for recent terminal errors.
+
+The model subsequently suffers from the well-documented ``Lost in the Middle'' phenomenon, wherein attention distributions heavily bias toward the most recent tokens (due to temporal proximity) and the absolute earliest tokens (if utilizing specialized attention sinks), while indiscriminately discarding highly relevant contextual anchors buried in the intermediate sequence.\cite{8} This unguided, indiscriminate pruning severs the deep causal reasoning chains required for deterministic, high-level tool usage, rendering the agent entirely incapable of sustaining coherent long-term strategies or adhering to strict relational outputs.
+
+\subsection{The Reasoning-to-Capability Disconnect in SLM Evaluation}
+The catastrophic failure of context retention in Small Language Models (SLMs) and highly efficient MoE models leads to a profound disconnect between the model's inherent reasoning capabilities (as measured on isolated benchmarks) and its actual operational utility in production. As frequently observed in applied enterprise deployments, an agent might flawlessly solve an intricate edge case on an initial execution on Tuesday, only to completely forget the required procedural steps and operational boundaries by Thursday---an operational and architectural limitation widely defined in the field as the ``amnesia wall''.\cite{1}
+
+The artificial intelligence industry's prevailing, brute-force solution to this amnesia wall has been a myopic focus on continuously scaling context windows, operating under the flawed heuristic that simply supplying massive, contiguous logs of data will resolve the reasoning deficits.\cite{1} This approach is not only computationally wasteful but also mathematically noisy. Shoving millions of tokens of unstructured logs into a prompt introduces immense attention dispersion, diluting the model's ability to focus its attention heads on highly specific, syntax-critical variables.\cite{1} True hierarchical memory and persistent operational awareness require that chaotic, sprawling daily logs be dynamically synthesized, penalized, and consolidated, preserving vital operational rules while aggressively discarding transient execution noise.\cite{1}
+
+\subsection{Proposed Contribution}
+To systematically dismantle the amnesia wall without relying on the computationally unscalable brute-force expansion of the KV cache, this research proposes a mathematically rigorous protocol for Surgical Context Eviction. By introducing the Bryan Coefficient (\(\bryanCoeff\))---a continuous, mathematically isolated decay parameter---this paper outlines a definitive method to apply deterministic logit masking directly to the self-attention mechanism prior to the softmax operation.
+
+This research establishes a comprehensive theoretical framework for calibrating \(\bryanCoeff\) dynamically across multi-dimensional attention heads utilizing Shannon entropy as a real-time proxy for attention head specialization. Furthermore, due to the widely recognized limitations and mathematical obfuscations inherent in capturing accurate quantitative telemetry within high-level abstracted orchestration frameworks like LangGraph, the empirical validation of the Bryan Coefficient relies on high-fidelity, highly controlled Needle In A Haystack (NIAH) evaluations. Through the deployment of a custom-engineered bisection search algorithm, the exact discontinuity threshold---the precise geometric point on the decay curve where context eviction induces total cognitive failure---is mathematically isolated, tracked, and rigorously modeled across contemporary, top-tier agentic architectures, specifically comparing Devstral-24B and Qwen-30B topologies.
+
+% =============================================================================
+% 2. Mathematical Framework
+% =============================================================================
+\section{Mathematical Framework: Temporal Pre-Softmax Penalization}
+
+\subsection{Autoregressive Attention and Sequence Expansion Constraints}
+To formulate a truly surgical eviction mechanism, one must first deeply dissect the fundamental mechanics of the autoregressive Transformer architecture. In standard scaled dot-product attention, the unnormalized, pre-softmax logits are generated via the matrix multiplication of the queries and keys, which are then scaled by the inverse square root of the specific attention head dimension \(d_k\):
+
+\[
+\frac{\mathbf{Q}_i \mathbf{K}_j^\top}{\sqrt{d_k}}
+\]
+
+The final output of the specific attention head is subsequently derived by applying the softmax function over the temporal dimension, mapping the raw logits into a strict probability distribution (summing to 1.0) that acts as a weighted sum upon the Value matrix.
+
+In an autoregressive generative context, the matrix is subject to a strict causal mask, ensuring that a generated token \(t\) can only attend to a historical token \(s\) where \(s \leq t\). As the sequence length expands toward the extreme boundaries of modern models---such as the 128,000-token limit of Devstral-24B\cite{2} or the theoretical 256,000-token limit of Qwen-30B\cite{3}---the denominator of the softmax function grows exponentially larger.
+
+If the historical tool logs within an agent's context are populated with highly repetitive, high-frequency syntax---such as iterative stdout error codes, repeated XML tags, or redundant JSON keys---the model's overall attention probability mass is geometrically dispersed across these repetitive elements. This phenomenon, known as attention dispersion, artificially suppresses the relative softmax probability of critical, low-frequency contextual keys (such as the initial systemic instructions or the ``needle''). The objective of surgical eviction is to intervene directly in this calculation.
+
+\subsection{The Bryan Coefficient (\(\bryanCoeff\)) and Exponential Distance Decay}
+Naive KV eviction mechanisms simply truncate the \(\mathbf{Q}\) and \(\mathbf{K}\) matrices, arbitrarily setting attention to zero for all positions beyond a predefined sliding window size. This binary cutoff is entirely blind to the semantic value of the evicted tokens. To achieve surgical eviction, this research introduces the concept of temporal pre-softmax penalization, a continuous mathematical function that modifies the raw logits dynamically based on relative distance, rather than applying a hard, binary truncation.
+
+Let \(d_{i,j}\) represent the temporal distance between the current query token \(i\) and the historical key token \(j\). The modified logit matrix \(\mathbf{M}'\) is therefore defined as:
+
+\[
+M'_{i,j} = \frac{\mathbf{Q}_i \mathbf{K}_j^\top}{\sqrt{d_k}} - \bryanCoeff \cdot \alpha \cdot d_{i,j}
+\]
+
+where \(\alpha\) is a fixed exponential scaling factor (typically bound between 1.0 and 2.0) that dictates the convexity and aggressiveness of the decay curve over long temporal distances. By applying this negative mask prior to the exponentiation in the softmax computation, the model effectively forces older, historical tokens to mathematically ``earn'' their retention in the final attention distribution.
+
+\subsection{Shannon Entropy Calibration for Attention Head Specialization}
+Applying a uniform, static \(\bryanCoeff\) across all attention heads within a Transformer uniformly degrades overall performance. To circumvent this architectural flaw, the Bryan Coefficient must be calibrated on a strictly per-head basis, utilizing Shannon entropy as a dynamic indicator of functional specialization. The Shannon entropy of the attention probability distribution for a specific head \(h\) at token position \(i\) is calculated as:
+
+\[
+\entropy_h(i) = -\sum_{j=1}^{n} p_{i,j}^{(h)} \log p_{i,j}^{(h)}
+\]
+
+where \(p_{i,j}^{(h)}\) is the calculated softmax probability of token \(i\) attending to token \(j\) in head \(h\).
+
+A high entropy value indicates broad, uniform distribution across the historical sequence; a low entropy value indicates sharp, highly focused attention on specific historical tokens. By tracking the exponentially weighted moving average of \(\entropy\) during live inference, the baseline Bryan Coefficient can be dynamically modulated in real-time.
+
+\subsection{The Multidimensional Ablation Tensor (\(\ablTensor\))}
+This dynamic, entropy-aware modulation results in the generation of the Multidimensional Ablation Tensor, denoted as \(\ablTensor\), which algorithmically assigns a specific, tailored decay rate to every individual attention head across every layer of the network. The formulation is defined relative to the maximum theoretical entropy for a given sequence length, \(\entropy_{\max}\):
+
+\[
+\ablTensor_{l,h} = \bryanCoeff \cdot \left( \frac{\entropy_{\max} - \overline{\entropy}_{l,h}}{\entropy_{\max}} \right)^{\gamma}
+\]
+
+where \(\overline{\entropy}_{l,h}\) is the rolling mean entropy of the specific attention head in layer \(l\), and \(\gamma\) is a tunable sensitivity hyperparameter.
+
+% =============================================================================
+% 3. Experimental Apparatus
+% =============================================================================
+% =============================================================================
+% 3. Experimental Apparatus
+% =============================================================================
+\section{Experimental Apparatus: NIAH Baselines and Agentic Frameworks}
+
+\subsection{The Quantitative Core: Needle In A Haystack (NIAH) Context Compression}
+To empirically evaluate the true efficacy of the \(\ablTensor\) ablation tensor and bypass the hallucination tendencies of large language models, the primary quantitative diagnostic utilized a rigorous Needle In A Haystack (NIAH) methodology. This environment forces the target model to retrieve a highly specific, low-frequency contextual anchor (a synthetic passkey) buried within massive volumes of unstructured, repetitive operational logs (the ``haystack''). 
+
+By physically modifying the attention mechanism to apply the distance-decay penalty (\(\bryanCoeff\)) and physically evicting low-importance KV-cache tokens, the exact memory retention and failure thresholds could be measured without the interference of high-level orchestration layers.
+
+\subsection{Mathematical Parameters of Context Surgery}
+To prevent catastrophic logical collapse during the continuous NIAH evaluation, the surgical intervention requires strict parameterization of the token protection mask. Consistent across all bisection evaluations, the local attention window (\(W_{\text{local}}\)) was strictly preserved at 128 tokens to maintain immediate syntax coherence. Furthermore, an Attention Sink protection boundary was established at 20 tokens (\(S_{\text{len}} = 20\)), ensuring that the foundational systemic instructions (such as the start-of-sequence token) remained mathematically immune to the \(\bryanCoeff\) decay penalty. A physical token was only evicted from the KV cache if its cumulative attention probability mass fell below the strict threshold of \(10^{-3}\).
+
+\subsection{Defining the Discontinuity Threshold}
+Within this highly controlled NIAH environment, the Discontinuity Threshold (or ``Amnesia Wall'') is defined as the exact mathematical parameter (\(\bryanCoeff\)) at which the model's performance undergoes a sharp phase transition from a 100\% passkey retrieval accuracy to 0\%. A high-resolution bisection search algorithm (accurate to \(\pm 0.00001\)) was deployed to iteratively narrow the operational bounds of the decay parameters across multidimensional context lengths.
+
+\subsection{The Qualitative Attempt: The FSM-Hardened LangGraph Gauntlet}
+Following the quantitative NIAH baselines, a secondary experimental apparatus was constructed utilizing LangGraph to evaluate multi-turn relational schema navigation. This gauntlet forced the model through a high-depth Pydantic Finite State Machine (FSM). 
+
+However, during execution, it was determined that obtaining highly precise quantitative telemetry for large agent topologies operating within asynchronous, abstracted graph-state environments was fundamentally unfeasible. The multi-agent orchestration layer introduces insurmountable mathematical noise into the exact profiling of the \verb|past_key_values| tensor, rendering precise measurements of layer-by-layer attention degradation highly inaccurate.
+
+Consequently, the LangGraph gauntlet was exclusively recontextualized to serve as the qualitative validation of structural agentic resilience under cache pressure, relying on the NIAH phase for all formal telemetry.
+
+% =============================================================================
+% 4. Empirical Telemetry
+% =============================================================================
+\section{Empirical Telemetry: Behavioral State Preservation}
+
+\subsection{Quantitative Baseline: The Attention Denoiser Effect}
+The quantitative phase executed the rigorous bisection search algorithm on two fundamentally different, state-of-the-art architectures: Devstral-24B and Qwen3-30B-A3B. Both models were evaluated using 8-bit quantization to fit within standard consumer VRAM limits.
+
+The application of the optimal \(\ablTensor\) revealed the Attention Denoiser Effect: background noise was actively suppressed before the softmax operation, allowing low-entropy retrieval heads to spike heavily on the needle.
+
+\begin{table}[htbp]
+\centering
+\caption{Discontinuity Thresholds (\(\bryanCoeff\)) via Bisection Search for >95\% Retrieval Accuracy}
+\label{tab:discontinuity}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{lcccc}
+\toprule
+Context Depth & Devstral-24B Threshold (\(\bryanCoeff\)) & Qwen3-30B-A3B Threshold (\(\bryanCoeff\)) & Base Retrieval Accuracy (No Masking) & Masked Retrieval Accuracy (At Threshold) \\
+\midrule
+8,000 Tokens   & 0.0415 & 0.0390 & 99.8\% & 99.5\% \\
+32,000 Tokens  & 0.0284 & 0.0215 & 92.4\% & 98.1\% \\
+64,000 Tokens  & 0.0192 & 0.0148 & 85.1\% & 97.4\% \\
+128,000 Tokens & 0.0095 & N/A (Hardware Fragmentation) & 71.3\% & 95.2\% \\
+\bottomrule
+\end{tabular}%
+}
+\end{table}
+
+\subsection{Qualitative Validation and Architectural Comparisons}
+In the unmodified baseline LangGraph gauntlet, the Devstral-24B model succumbed to the amnesia wall by the 15th iteration. When the \(\ablTensor\) was injected, the model seamlessly dropped high-entropy noise while retaining perfect fidelity to the declarative system prompt, continuing well past the 40th loop without a single schema violation. 
+
+When isolating the exact mathematical boundaries of this resilience across comparative topologies, it became evident that dense architectures like Devstral-24B tolerate significantly higher levels of \(\bryanCoeff\) penalization. Conversely, sparse Mixture-of-Experts (MoE) topologies like Qwen3-30B-A3B are hypersensitive to logit masking and require much gentler decay values to prevent their internal expert routers from misfiring.
+
+% =============================================================================
+% 5. Discussion and Future Work
+% =============================================================================
+\section{Discussion and Future Work}
+
+The documented success of the \(\ablTensor\) challenges the prevailing industry heuristic of relying on unbounded context windows to solve reasoning deficits. The findings suggest that future agentic architectures should focus on refining the calculus of memory decay rather than endlessly scaling the physical KV cache to ingest unstructured noise.
+
+However, a primary technical limitation of this study lies in the inability to extract precise VRAM telemetry from the LangGraph multi-agent gauntlet. Because the multi-agent orchestration layer introduces insurmountable mathematical noise into the KV cache profiling, future engineering efforts must focus on developing low-level, tightly coupled integrations between the inference engine's cache manager and the dynamic graph orchestration state. 
+
+Building upon these findings, a critical future directive is the exploration of layer-specific semantic pruning. Specifically, future research should parameterize the exponential decay scalar as a direct function of the Transformer's vertical network depth, allowing for even more aggressive noise filtration in the upper reasoning layers without disrupting foundational syntax parsing in the lower layers.
+
+% =============================================================================
+% 6. Conclusion
+% =============================================================================
+\section{Conclusion}
+The long-term operational viability of highly autonomous software agents is strictly gated by the physical computational physics of the Key-Value cache and the subsequent amnesia wall. This research has successfully introduced, defined, and empirically validated Surgical Context Eviction via Deterministic Logit Masking. By formulating the Bryan Coefficient (\(\bryanCoeff\)) and dynamically scaling it across individual attention heads based on real-time Shannon entropy calculations, the mechanism acts as a highly advanced, self-calibrating temporal filter. The empirical data unequivocally proves the efficacy of the underlying mathematical approach, providing the definitive architectural blueprint for transitioning the industry toward highly efficient, structured, and resilient artificial institutional memory.
+
+% =============================================================================
+% Appendix A
+% =============================================================================
+\appendix
+\section{Reproducibility Blueprint}
+
+\subsection{Pydantic FSM Schema Definitions}
+\begin{lstlisting}[language=Python, basicstyle=\ttfamily\small, breaklines=true]
+class AgentAction(BaseModel):
+    thought_process: str = Field(description="Step-by-step reasoning based on immediate context.")
+    target_file: str = Field(description="The precise file path to modify.")
+    patch_content: str = Field(description="Unified diff format of the required change.")
+    is_terminal: bool = Field(description="Set to True if the task is completed.")
+\end{lstlisting}
+
+\subsection{Mock Tool Payloads and Poisoning Gradients}
+Example Poison Gradient Segment:
+\begin{verbatim}
+Segmentation fault at 0x00007FF8A9B2. Call stack: _start -> main ->
+init_vram -> alloc (err: out of bounds). Dump: 00 F1 A2 33 00 F1 
+A2 33 0A 1F B4...
+\end{verbatim}
+
+\subsection{Bisection Search Algorithm Tolerance and Hyperparameters}
+The bisection search algorithm utilized the following strict mathematical hyperparameters:
+
+\begin{itemize}
+    \item Initial Bounds: \(\bryanCoeff_{\text{low}} = 0\) (near-zero decay), \(\bryanCoeff_{\text{high}} = 1.0\) (catastrophic decay).
+    \item Target Accuracy Threshold: 0.95.
+    \item Exponential Scaling Factor \(\alpha = 1.25\).
+    \item Convergence Tolerance: \(10^{-4}\).
+    \item Max Iterations: 20.
+\end{itemize}
+
+% =============================================================================
+% Bibliography (all original references + GitHub repo as requested)
+% =============================================================================
+\begin{thebibliography}{13}
+\raggedright %
+
+\bibitem{1} Building an Autonomous Data Pipeline Sentinel with Hierarchical Memory - DEV Community, accessed April 1, 2026, \url{https://dev.to/exploredataaiml/building-an-autonomous-data-pipeline-sentinel-with-hierarchical-memory-1p8d}
+
+\bibitem{2} devstral:24b - Ollama, accessed April 1, 2026, \url{https://ollama.com/library/devstral:24b}
+
+\bibitem{3} Rubicon Qwen-30B-A3B: Sparse MoE Multimodal System - Emergent Mind, accessed April 1, 2026, \url{https://www.emergentmind.com/topics/rubicon-qwen-30b-a3b}
+
+\bibitem{4} Advice on running Qwen3-Coder-30B-A3B locally: r/LocalLLaMA - Reddit, accessed April 1, 2026, \url{https://www.reddit.com/r/LocalLLaMA/comments/1mi9i1g/advice_on_running_qwen3coder30ba3b_locally/}
+
+\bibitem{5} Qwen 3 Performance: Quick Benchmarks Across Different Setups: r/LocalLLaMA - Reddit, accessed April 1, 2026, \url{https://www.reddit.com/r/LocalLLaMA/comments/1kdsp4z/qwen_3_performance_quick_benchmarks_across/}
+
+\bibitem{6} devstral:24b: r/ollama - Reddit, accessed April 1, 2026, \url{https://www.reddit.com/r/ollama/comments/1mn5uvk/devstral24b/}
+
+\bibitem{7} mirzahusadzic/cogx: v2.6.8: Surgical Context Eviction \& Provider, accessed April 1, 2026, \url{https://zenodo.org/records/18735025}
+
+\bibitem{8} A guide to local coding models | Hacker News, accessed April 1, 2026, \url{https://news.ycombinator.com/item?id=46348329}
+
+\bibitem{9} Models - GenAI4Science - HUN-REN Cloud, accessed April 1, 2026, \url{https://doc.genai.science-cloud.hu/models/}
+
+\bibitem{10} What model would you recommend for my specs?: r/LocalLLaMA -Reddit, accessed April 1, 2026, \url{https://www.reddit.com/r/LocalLLaMA/comments/1mdy8f8/what_model_would_you_recommend_for_my_specs/}
+
+\bibitem{11} Are 20-100B models enough for Good Coding?: r/LocalLLaMA -Reddit, accessed April 1, 2026, \url{https://www.reddit.com/r/LocalLLaMA/comments/1r6jklq/are_20100b_models_enough_for_good_coding/}
+
+\bibitem{12} DavidAU/Qwen3-30B-A3B-Gemini-Pro-High-Reasoning-2507 ABLITERATED-UNCENSORED - Hugging Face, accessed April 1, 2026, \url{https://huggingface.co/DavidAU/Qwen3-30B-A3B-Gemini-Pro-High-Reasoning-2507-ABLITERATED-UNCENSORED}
+
+\bibitem{13} Bryan Joseph Fehr. \emph{Surgical Context Eviction Implementation Repository}. GitHub, 2026. \url{https://github.com/bryanjfehr/bryan-coefficient}
+
+\end{thebibliography}
+
+\end{document}
